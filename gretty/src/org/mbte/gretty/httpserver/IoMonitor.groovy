@@ -66,7 +66,7 @@ import org.jboss.netty.channel.ChannelStateEvent
     void setLogStatistics(boolean log) {
         if(log) {
             lastTime = System.currentTimeMillis()
-            new Timer().schedule({
+            new Timer(true).schedule({
                 def curTime = System.currentTimeMillis()
                 if(curTime != lastTime) {
                     def osBean = ManagementFactory.getOperatingSystemMXBean()
@@ -89,7 +89,7 @@ import org.jboss.netty.channel.ChannelStateEvent
     System load:         ${osBean.systemLoadAverage}"""
                     lastTime = curTime
                 }
-            }, 5000, 5000)
+            }, 10000, 10000)
         }
     }
 }
