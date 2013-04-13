@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2009-2010 MBTE Sweden AB.
  *
@@ -18,6 +19,14 @@ package org.mbte.gretty
 
 import java.util.concurrent.Executors
 import java.util.concurrent.Executor
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+
 
 import org.jboss.netty.channel.group.DefaultChannelGroup
 import org.jboss.netty.channel.Channel
@@ -51,9 +60,16 @@ import org.jboss.netty.logging.InternalLogger
     protected ExecutorService threadPool
 
     void start () {
-        def bossExecutor = Executors.newCachedThreadPool()
-        def ioExecutor   = Executors.newFixedThreadPool(ioWorkerCount)
-        threadPool       = Executors.newFixedThreadPool(serviceWorkerCount)
+		ThreadFactory serverBossTF = new NamedThreadFactory("NETTYSERVER-BOSS-")
+		ThreadFactory serverWorkerTF = new NamedThreadFactory("NETTYSERVER-WORKER-")
+        def bossExecutor = Executors.newCachedThreadPool(serverBossTF)
+        def ioExecutor   = Executors.newCachedThreadPool(serverWorkerTF)
+        //threadPool       = Executors.newFixedThreadPool(serviceWorkerCount)
+		
+		ThreadFactory tf = new NamedThreadFactory("BIZPOOL")
+		threadPool = new ThreadPoolExecutor(5, serviceWorkerCount,
+						300, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(), tf)
+	
 
         if(!localAddress) {
             throw new IllegalStateException("localAddress is not configured")
@@ -64,8 +80,8 @@ import org.jboss.netty.logging.InternalLogger
         def channelFactory = isLocal ? new DefaultLocalServerChannelFactory () : (NioServerSocketChannelFactory )[bossExecutor, ioExecutor]
 
         ServerBootstrap bootstrap = [factory: channelFactory, pipelineFactory:this]
-        bootstrap.setOption("child.tcpNoDelay", true)
-        bootstrap.setOption("child.keepAlive",  true)
+        bootstrap.setOption("tcpNoDelay", true)
+        bootstrap.setOption("reuseAddress",  true)
 
         channel = bootstrap.bind(localAddress)
         channel.closeFuture.addListener {
@@ -100,7 +116,12 @@ import org.jboss.netty.logging.InternalLogger
     }
 
     void execute(Runnable command) {
-        threadPool.execute command
+		try{
+			threadPool.execute command
+		} catch (RejectedExecutionException exception) {
+			logger.error("server threadpool full,threadpool maxsize is:"
+					+ ((ThreadPoolExecutor) threadPool).getMaximumPoolSize())
+		}
     }
 
     protected void buildPipeline(ChannelPipeline pipeline) {
