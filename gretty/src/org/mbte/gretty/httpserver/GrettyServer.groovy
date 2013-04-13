@@ -33,6 +33,7 @@ import org.jboss.netty.logging.InternalLoggerFactory
 import org.jboss.netty.logging.InternalLogger
 import org.mbte.gretty.httpclient.HttpRequestHelper
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator
+import org.jboss.netty.handler.codec.http.HttpContentCompressor
 
 @Typed class GrettyServer extends AbstractServer<GrettyServer> implements HttpRequestHelper {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(GrettyServer)
@@ -179,7 +180,7 @@ import org.jboss.netty.handler.codec.http.HttpChunkAggregator
     protected void buildPipeline(ChannelPipeline pipeline) {
         super.buildPipeline(pipeline)
 
-        pipeline.addLast("flash.policy.file", new FlashPolicyFileHandler(this))
+        //pipeline.addLast("flash.policy.file", new FlashPolicyFileHandler(this))
 
         pipeline.addLast("http.request.decoder", new GrettyRequestDecoder())
         pipeline.addLast("http.request.aggregator", new HttpChunkAggregator(Integer.MAX_VALUE))
@@ -187,7 +188,10 @@ import org.jboss.netty.handler.codec.http.HttpChunkAggregator
         pipeline.addLast("chunkedWriter", new ChunkedWriteHandler())
         pipeline.addLast("http.response.encoder", new GrettyResponseEncoder())
 
-        pipeline.addLast("fileWriter", new FileWriteHandler())
+        //Add by brian chen
+        pipeline.addLast("deflater", new HttpContentCompressor(1))
+
+        //pipeline.addLast("fileWriter", new FileWriteHandler())
 
         pipeline.addLast("http.application", new GrettyAppHandler(this))
     }
